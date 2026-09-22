@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>·</title>
+<style>
+  :root{
+    --bg:#070b11; --panel:#101826; --line:#2a3a50; --text:#f3f6fb; --muted:#9aabc0;
+    --green:#1dff8a; --amber:#ffb020; --red:#ff4d5e; --blue:#4da3ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{
+    width:100%;height:100%;overflow:hidden!important;
+    background:var(--bg); color:var(--text);
+    font:13px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    height:100vh;width:100vw;overflow:hidden;
+    display:grid;
+    grid-template-rows:26px auto minmax(0,1.05fr) minmax(0,0.9fr) minmax(0,0.7fr) 20px;
+    gap:6px; padding:6px;
+  }
+  .top,.foot{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px}
+  .sticky{display:none;grid-column:1/-1}
+  .sticky.on{display:flex;align-items:center;padding:5px 10px;border-radius:7px;font-size:12px;font-weight:650;border:1px solid var(--line)}
+  .sticky.warn{background:#2a1f0a;color:var(--amber)}.sticky.bad{background:#2a0f14;color:var(--red)}
+  .sig{font-weight:650;letter-spacing:.05em}
+
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; min-height:0; min-width:0; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .card h2{
+    flex:0 0 auto; font-size:10px; font-weight:700; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.11em; margin-bottom:5px;
+  }
+  .fill{flex:1 1 auto;min-height:0;overflow:hidden}
+
+  /* ROW 1: chart | attack */
+  .row1{display:grid;grid-template-columns:1.05fr 1fr;gap:6px;min-height:0;overflow:hidden}
+  canvas{width:100%;height:100%;display:block}
+  .banner{font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1;margin:0 0 6px}
+  .ok{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
+  .light{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 7px rgba(29,255,138,.8);flex:0 0 auto;margin-top:3px}
+  .light.warn{background:var(--amber);box-shadow:0 0 7px rgba(255,176,32,.75)}
+  .light.bad{background:var(--red);box-shadow:0 0 7px rgba(255,77,94,.75)}
+  .pulse{animation:p 2.2s ease-in-out infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.55}}
+  .rows{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;height:100%;align-content:space-between}
+  .row{display:grid;grid-template-columns:10px 1fr;gap:6px;align-items:start}
+  .row .label{color:var(--muted);font-size:11px}
+  .row .val{color:var(--text);font-size:12px;font-weight:650}
+  .row .val.ok{color:var(--green)}.row .val.warn{color:var(--amber)}.row .val.bad{color:var(--red)}
+  .legend{flex:0 0 auto;display:flex;gap:10px;color:var(--muted);font-size:10px;margin-top:3px}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .dot.dl{background:var(--blue)}.dot.ul{background:var(--green)}
+
+  .hist-btn{
+    appearance:none;border:1px solid var(--line);background:#152033;color:var(--text);
+    border-radius:6px;padding:3px 9px;font-size:11px;font-weight:650;cursor:pointer;
+  }
+  .hist-btn:hover{border-color:var(--blue);color:#fff}
+  .hist-btn .n{color:var(--red);margin-left:4px}
+  .modal-bg{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;
+    align-items:center;justify-content:center;padding:18px;
+  }
+  .modal-bg.on{display:flex}
+  .modal{
+    width:min(920px,96vw);height:min(720px,90vh);background:#0c121c;border:1px solid var(--line);
+    border-radius:10px;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .modal head,.modal .mhd{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;
+  }
+  .modal .mhd span{color:var(--muted);font-weight:500;font-size:11px;margin-left:8px}
+  .modal .close{border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;padding:0 6px}
+  .modal .body{
+    flex:1 1 auto;overflow:auto;padding:8px 12px;
+  }
+  .modal .a{
+    display:grid;grid-template-columns:92px 52px 1fr;gap:10px;padding:8px 4px;
+    border-bottom:1px solid rgba(42,58,80,.55);font-size:12px;align-items:start;
+  }
+  .modal .a .when{color:var(--muted)}
+  .modal .a .lvl{font-weight:800;text-transform:uppercase;font-size:10px;letter-spacing:.06em}
+  .modal .a .lvl.bad{color:var(--red)}.modal .a .lvl.warn{color:var(--amber)}
+  .modal .empty{color:var(--muted);padding:24px 8px;text-align:center}
+
+
+  /* ROW 2: cameras full width — tiles STRETCH, no cavern */
+  .camgrid{
+    height:100%;
+    display:grid;
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:6px;
+  }
+  .cam{
+    border:1px solid var(--line);border-radius:7px;padding:8px;
+    display:flex;flex-direction:column;justify-content:center;gap:2px;
+    min-height:0;overflow:hidden;background:#0b111a;
+  }
+  .cam .toprow{display:flex;align-items:center;gap:6px}
+  .cam .name{font-size:12px;font-weight:650}
+  .cam .state{font-size:16px;font-weight:800;letter-spacing:-.02em}
+  .cam .meta{font-size:11px;color:var(--muted);line-height:1.2;white-space:normal}
+
+  /* ROW 3: defenses + changes + live facts — equal columns, packed */
+  .row3{display:grid;grid-template-columns:0.85fr 1.15fr 0.9fr;gap:6px;min-height:0;overflow:hidden}
+  .defs .rows{display:flex;flex-direction:column;gap:4px;justify-content:space-evenly;height:100%;grid-template-columns:unset}
+  .defs .row{grid-template-columns:10px 1fr auto}
+  .defs .row .val{text-align:right}
+  .chg{height:100%;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+  .chg div{font-size:11px;line-height:1.25;padding:2px 0;border-bottom:1px solid rgba(42,58,80,.5);color:#c5d0de}
+  .chg div:last-child{border-bottom:0}
+  .chg .bad{color:var(--red)}.chg .warn{color:var(--amber)}
+  .facts{display:flex;flex-direction:column;gap:6px;height:100%;justify-content:space-evenly}
+  .fact{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+  .fact span:first-child{color:var(--muted)}
+  .fact b{font-weight:700;color:var(--text)}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="top"><div id="clock">—</div><div class="sig">ROB · LIVE</div></div>
+  <div class="sticky" id="stickyAlert"></div>
+  <div class="row1">
+    <section class="card">
+      <h2>Internet over time</h2>
+      <div class="fill"><canvas id="chart"></canvas></div>
+      <div class="legend"><span><i class="dot dl"></i>download</span><span><i class="dot ul"></i>upload</span><span id="rateHint"></span></div>
+    </section>
+    <section class="card">
+      <h2>Am I being attacked?</h2>
+      <div class="banner ok" id="banner">ALL CLEAR</div>
+      <div class="fill rows" id="threats"></div>
+    </section>
+  </div>
+  <section class="card">
+    <h2>Cameras</h2>
+    <div class="fill camgrid" id="cams"></div>
+  </section>
+  <div class="row3">
+    <section class="card defs">
+      <h2>Defenses</h2>
+      <div class="fill rows" id="defs"></div>
+    </section>
+    <section class="card">
+      <h2>What changed · 24h</h2>
+      <div class="fill chg" id="changes"></div>
+    </section>
+    <section class="card">
+      <h2>Now</h2>
+      <div class="fill facts" id="facts"></div>
+    </section>
+  </div>
+  <div class="foot"><span id="sweep">—</span>
+    <button type="button" class="hist-btn" id="histBtn">Alerts history<span class="n" id="histCount"></span></button>
+  </div>
+  <div class="modal-bg" id="histModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-label="Alerts history">
+      <div class="mhd">Alerts history <span>stored forever · never deleted</span>
+        <button type="button" class="close" id="histClose" aria-label="Close">×</button>
+      </div>
+      <div class="body" id="histBody"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+<script>
+let hist={rx:[],tx:[]};
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+function clock(){const o={timeZone:"America/Los_Angeles",hour12:false};const d=new Date();document.getElementById("clock").textContent=d.toLocaleString("en-CA",{...o,year:"numeric",month:"2-digit",day:"2-digit"})+"  "+d.toLocaleTimeString("en-GB",{...o,hour:"2-digit",minute:"2-digit",second:"2-digit"})+" PT";}
+function lc(s){return "light"+(s==="ok"?" pulse":s==="warn"?" warn":s==="bad"?" bad":" warn");}
+function tone(s){return s==="ok"?"ok":s==="warn"?"warn":"bad";}
+function onlineLabel(v){if(v===true)return["ONLINE","ok"];if(v===false)return["OFFLINE","bad"];return["CHECKING","warn"];}
+function camMeta(r){
+  if(r.brief) return r.brief;
+  const bits=[];
+  if(r.ip) bits.push("."+String(r.ip).split(".").pop());
+  if(r.recording) bits.push("recording");
+  if(r.last_seen) bits.push(r.last_seen);
+  return bits.join(" · ")||"—";
+}
+function drawChart(){
+  const c=document.getElementById("chart"); if(!c) return;
+  const ctx=c.getContext("2d");
+  const w=c.width=Math.max(1,c.clientWidth*devicePixelRatio);
+  const h=c.height=Math.max(1,c.clientHeight*devicePixelRatio);
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle="#1a2433"; ctx.lineWidth=1;
+  for(let i=1;i<4;i++){const y=h*i/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  const rx=hist.rx.slice(-180), tx=hist.tx.slice(-180);
+  if(rx.length<2){ctx.fillStyle="#9aabc0";ctx.font=`${12*devicePixelRatio}px sans-serif`;ctx.fillText("Building history…",10*devicePixelRatio,h/2);return;}
+  const max=Math.max(0.5,...rx,...tx)*1.15;
+  const plot=(arr,color)=>{ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2*devicePixelRatio;
+    arr.forEach((v,i)=>{const x=i/(arr.length-1)*(w-2)+1;const y=h-5-((v/max)*(h-14));i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();};
+  plot(rx,"#4da3ff"); plot(tx,"#1dff8a");
+}
+function render(s){
+  const rx=s.link?.rx_mbps, tx=s.link?.tx_mbps;
+  if(rx!=null){hist.rx.push(+rx);if(hist.rx.length>240)hist.rx.shift();}
+  if(tx!=null){hist.tx.push(+tx);if(hist.tx.length>240)hist.tx.shift();}
+  const lastRx=hist.rx.at(-1), lastTx=hist.tx.at(-1);
+  document.getElementById("rateHint").textContent=(lastRx!=null&&lastTx!=null)?`latest ${lastRx.toFixed(1)}↓ / ${lastTx.toFixed(1)}↑ Mbps`:"waiting for Mac feed";
+  drawChart();
+  const threats=s.threats||[];
+  const worst=threats.some(t=>t.state==="bad")?"bad":threats.some(t=>t.state==="warn")?"warn":"ok";
+  const banner=document.getElementById("banner");
+  banner.className="banner "+tone(worst);
+  banner.textContent=worst==="ok"?"ALL CLEAR":worst==="warn"?"WATCHING":"ALERT";
+  const th=document.getElementById("threats"); th.innerHTML="";
+  threats.forEach(t=>{
+    const el=document.createElement("div"); el.className="row";
+    el.innerHTML=`<span class="${lc(t.state)}"></span><div><div class="label">${esc(t.label)}</div><div class="val ${tone(t.state)}">${esc(t.detail)}</div></div>`;
+    th.appendChild(el);
+  });
+  const cams=document.getElementById("cams"); cams.innerHTML="";
+  const names=(s.rings||[]).map(r=>r.name);
+  names.forEach(name=>{
+    const r=(s.rings||[]).find(x=>x.name===name)||{name,online:null}; const [lab,st]=onlineLabel(r.online);
+    const meta=camMeta(r);
+    const el=document.createElement("div"); el.className="cam";
+    el.innerHTML=`<div class="toprow"><span class="${lc(st)}"></span><span class="name">${esc(name)}</span></div>
+      <div class="state ${st}">${lab}${r.recording?" · REC":""}</div>
+      <div class="meta">${esc(meta)}</div>`;
+    cams.appendChild(el);
+  });
+  const defs=document.getElementById("defs"); defs.innerHTML="";
+  (s.defenses||[]).forEach(d=>{
+    const el=document.createElement("div"); el.className="row";
+    el.innerHTML=`<span class="${lc(d.state)}"></span><span class="label">${esc(d.label)}</span><span class="val ${tone(d.state)}">${esc(d.detail)}</span>`;
+    defs.appendChild(el);
+  });
+  const ch=document.getElementById("changes"); ch.innerHTML="";
+  const list=(s.changes||[]).slice(0,14);
+  if(!list.length){const el=document.createElement("div");el.textContent="Quiet — no alerts in the last 24h.";ch.appendChild(el);}
+  list.forEach(c=>{
+    const el=document.createElement("div");
+    const low=(c||"").toLowerCase();
+    el.className=/offline|unknown|spike|stopped|alert/.test(low)?"bad":/warn/.test(low)?"warn":"";
+    el.textContent=c; el.title=c; ch.appendChild(el);
+  });
+  const wifi=s.wifi||{};
+  const online=(s.rings||[]).filter(r=>r.online===true).length;
+  const rec=(s.rings||[]).filter(r=>r.recording).length;
+  const facts=document.getElementById("facts");
+  facts.innerHTML=`
+    <div class="fact"><span>Wi‑Fi</span><b>${esc(wifi.ssid_hint||"—")}${wifi.tx_rate?` · ${wifi.tx_rate} Mbps`:""}</b></div>
+    <div class="fact"><span>Link</span><b>${(lastRx??0).toFixed(1)}↓ / ${(lastTx??0).toFixed(1)}↑</b></div>
+    <div class="fact"><span>Cams up</span><b>${online}/6</b></div>
+    <div class="fact"><span>Recording</span><b>${rec}</b></div>
+    <div class="fact"><span>Events 24h</span><b>${(s.changes||[]).length}</b></div>`;
+  const st=s.sticky_alert||{};
+  const bar=document.getElementById("stickyAlert");
+  if(st.active){bar.className="sticky on "+(st.level==="bad"?"bad":"warn");bar.textContent=(st.when?st.when+" · ":"")+(st.text||"Alert");}
+  else{bar.className="sticky";bar.textContent="";}
+  document.getElementById("sweep").textContent=(s._sweep?"updated "+s._sweep:"")+(s._mac_ts?" · mac live":"");
+  const ac=s.alert_count;
+  document.getElementById("histCount").textContent=(ac!=null&&ac>0)?(" · "+ac):"";
+}
+async function load(){try{const r=await fetch("status.json?ts="+Date.now(),{cache:"no-store"});if(r.ok) render(await r.json());}catch(e){}}
+clock();load();
+setInterval(clock,1000);setInterval(load,4000);
+addEventListener("resize",()=>drawChart());
+
+async function loadAlertsHistory(){
+  const body=document.getElementById("histBody");
+  body.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    const r=await fetch("alerts.json?ts="+Date.now(),{cache:"no-store"});
+    if(!r.ok) throw new Error("http");
+    const data=await r.json();
+    const list=data.alerts||[];
+    document.getElementById("histCount").textContent=data.count?(" · "+data.count):"";
+    if(!list.length){body.innerHTML='<div class="empty">No red/amber alerts stored yet.</div>';return;}
+    body.innerHTML="";
+    list.forEach(a=>{
+      const el=document.createElement("div");
+      el.className="a";
+      el.innerHTML=`<div class="when">${esc(a.when||"—")}</div><div class="lvl ${esc(a.level||"")}">${esc(a.level||"")}</div><div>${esc(a.text||"")}</div>`;
+      body.appendChild(el);
+    });
+  }catch(e){
+    body.innerHTML='<div class="empty">Could not load alerts.json</div>';
+  }
+}
+function openHist(){document.getElementById("histModal").classList.add("on");loadAlertsHistory();}
+function closeHist(){document.getElementById("histModal").classList.remove("on");}
+document.getElementById("histBtn").addEventListener("click",openHist);
+document.getElementById("histClose").addEventListener("click",closeHist);
+document.getElementById("histModal").addEventListener("click",e=>{if(e.target.id==="histModal")closeHist();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeHist();});
+
+</script>
+</body>
+</html>
